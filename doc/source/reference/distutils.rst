@@ -9,11 +9,17 @@ Packaging (:mod:`numpy.distutils`)
    ``numpy.distutils`` is deprecated, and will be removed for
    Python >= 3.12. For more details, see :ref:`distutils-status-migration`
 
+.. warning::
+
+   Note that ``setuptools`` does major releases often and those may contain
+   changes that break ``numpy.distutils``, which will *not* be updated anymore
+   for new ``setuptools`` versions. It is therefore recommended to set an
+   upper version bound in your build configuration for the last known version
+   of ``setuptools`` that works with your build.
+
 NumPy provides enhanced distutils functionality to make it easier to
 build and install sub-packages, auto-generate code, and extension
-modules that use Fortran-compiled libraries. To use features of NumPy
-distutils, use the :func:`setup <core.setup>` command from
-:mod:`numpy.distutils.core`. A useful :class:`Configuration
+modules that use Fortran-compiled libraries. A useful :class:`Configuration
 <misc_util.Configuration>` class is also provided in
 :mod:`numpy.distutils.misc_util` that can make it easier to construct
 keyword arguments to pass to the setup function (by passing the
@@ -112,7 +118,7 @@ Configuration class
 
     .. automethod:: get_info
 
-Building Installable C libraries
+Building installable C libraries
 ================================
 
 Conventional C libraries (installed through `add_library`) are not installed, and
@@ -181,9 +187,7 @@ This will install the file foo.ini into the directory package_dir/lib, and the
 foo.ini file will be generated from foo.ini.in, where each ``@version@`` will be
 replaced by ``subst_dict['version']``. The dictionary has an additional prefix
 substitution rule automatically added, which contains the install prefix (since
-this is not easy to get from setup.py).  npy-pkg-config files can also be
-installed at the same location as used for numpy, using the path returned from
-`get_npy_pkg_dir` function.
+this is not easy to get from setup.py).
 
 Reusing a C library from another package
 ----------------------------------------

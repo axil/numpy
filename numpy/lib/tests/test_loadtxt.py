@@ -5,6 +5,7 @@ These tests complement those found in `test_io.py`.
 """
 
 import sys
+import os
 import pytest
 from tempfile import NamedTemporaryFile, mkstemp
 from io import StringIO
@@ -243,6 +244,14 @@ def test_converters_negative_indices_with_usecols():
                      usecols=[0, -1], converters={-1: (lambda x: -1)})
     assert_array_equal(res, [[0, -1], [0, -1]])
 
+
+def test_ragged_error():
+    rows = ["1,2,3", "1,2,3", "4,3,2,1"]
+    with pytest.raises(ValueError,
+            match="the number of columns changed from 3 to 4 at row 3"):
+        np.loadtxt(rows, delimiter=",")
+
+
 def test_ragged_usecols():
     # usecols, and negative ones, work even with varying number of columns.
     txt = StringIO("0,0,XXX\n0,XXX,0,XXX\n0,XXX,XXX,0,XXX\n")
@@ -252,7 +261,7 @@ def test_ragged_usecols():
 
     txt = StringIO("0,0,XXX\n0\n0,XXX,XXX,0,XXX\n")
     with pytest.raises(ValueError,
-                match="invalid column index -2 at row 1 with 2 columns"):
+                match="invalid column index -2 at row 2 with 1 columns"):
         # There is no -2 column in the second row:
         np.loadtxt(txt, dtype=float, delimiter=",", usecols=[0, -2])
 
@@ -390,6 +399,7 @@ def test_bool():
 @pytest.mark.skipif(IS_PYPY and sys.implementation.version <= (7, 3, 8),
                     reason="PyPy bug in error formatting")
 @pytest.mark.parametrize("dtype", np.typecodes["AllInteger"])
+@pytest.mark.filterwarnings("error:.*integer via a float.*:DeprecationWarning")
 def test_integer_signs(dtype):
     dtype = np.dtype(dtype)
     assert np.loadtxt(["+2"], dtype=dtype) == 2
@@ -407,6 +417,7 @@ def test_integer_signs(dtype):
 @pytest.mark.skipif(IS_PYPY and sys.implementation.version <= (7, 3, 8),
                     reason="PyPy bug in error formatting")
 @pytest.mark.parametrize("dtype", np.typecodes["AllInteger"])
+@pytest.mark.filterwarnings("error:.*integer via a float.*:DeprecationWarning")
 def test_implicit_cast_float_to_int_fails(dtype):
     txt = StringIO("1.0, 2.1, 3.7\n4, 5, 6")
     with pytest.raises(ValueError):
@@ -448,8 +459,7 @@ def test_read_from_generator_multitype():
 
 def test_read_from_bad_generator():
     def gen():
-        for entry in ["1,2", b"3, 5", 12738]:
-            yield entry
+        yield from ["1,2", b"3, 5", 12738]
 
     with pytest.raises(
             TypeError, match=r"non-string returned while reading data"):
@@ -531,12 +541,27 @@ def test_quoted_field(q):
     assert_array_equal(res, expected)
 
 
+@pytest.mark.parametrize("q", ('"', "'", "`"))
+def test_quoted_field_with_whitepace_delimiter(q):
+    txt = StringIO(
+        f"{q}alpha, x{q}     2.5\n{q}beta, y{q} 4.5\n{q}gamma, z{q}   5.0\n"
+    )
+    dtype = np.dtype([('f0', 'U8'), ('f1', np.float64)])
+    expected = np.array(
+        [("alpha, x", 2.5), ("beta, y", 4.5), ("gamma, z", 5.0)], dtype=dtype
+    )
+
+    res = np.loadtxt(txt, dtype=dtype, delimiter=None, quotechar=q)
+    assert_array_equal(res, expected)
+
+
 def test_quote_support_default():
     """Support for quoted fields is disabled by default."""
     txt = StringIO('"lat,long", 45, 30\n')
     dtype = np.dtype([('f0', 'U24'), ('f1', np.float64), ('f2', np.float64)])
 
-    with pytest.raises(ValueError, match="the number of columns changed"):
+    with pytest.raises(ValueError,
+            match="the dtype passed requires 3 columns but 4 were"):
         np.loadtxt(txt, dtype=dtype, delimiter=",")
 
     # Enable quoting support with non-None value for quotechar param
@@ -814,7 +839,7 @@ class TestCReaderUnitTests:
     # unless things go very very wrong somewhere.
     def test_not_an_filelike(self):
         with pytest.raises(AttributeError, match=".*read"):
-            np.core._multiarray_umath._load_from_filelike(
+            np._core._multiarray_umath._load_from_filelike(
                 object(), dtype=np.dtype("i"), filelike=True)
 
     def test_filelike_read_fails(self):
@@ -831,7 +856,7 @@ class TestCReaderUnitTests:
                 return "1,2,3\n"
 
         with pytest.raises(RuntimeError, match="Bad bad bad!"):
-            np.core._multiarray_umath._load_from_filelike(
+            np._core._multiarray_umath._load_from_filelike(
                 BadFileLike(), dtype=np.dtype("i"), filelike=True)
 
     def test_filelike_bad_read(self):
@@ -847,23 +872,23 @@ class TestCReaderUnitTests:
 
         with pytest.raises(TypeError,
                     match="non-string returned while reading data"):
-            np.core._multiarray_umath._load_from_filelike(
+            np._core._multiarray_umath._load_from_filelike(
                 BadFileLike(), dtype=np.dtype("i"), filelike=True)
 
     def test_not_an_iter(self):
         with pytest.raises(TypeError,
                     match="error reading from object, expected an iterable"):
-            np.core._multiarray_umath._load_from_filelike(
+            np._core._multiarray_umath._load_from_filelike(
                 object(), dtype=np.dtype("i"), filelike=False)
 
     def test_bad_type(self):
         with pytest.raises(TypeError, match="internal error: dtype must"):
-            np.core._multiarray_umath._load_from_filelike(
+            np._core._multiarray_umath._load_from_filelike(
                 object(), dtype="i", filelike=False)
 
     def test_bad_encoding(self):
         with pytest.raises(TypeError, match="encoding must be a unicode"):
-            np.core._multiarray_umath._load_from_filelike(
+            np._core._multiarray_umath._load_from_filelike(
                 object(), dtype=np.dtype("i"), filelike=False, encoding=123)
 
     @pytest.mark.parametrize("newline", ["\r", "\n", "\r\n"])
@@ -876,7 +901,7 @@ class TestCReaderUnitTests:
         data = StringIO('0\n1\n"2\n"\n3\n4 #\n'.replace("\n", newline),
                         newline="")
 
-        res = np.core._multiarray_umath._load_from_filelike(
+        res = np._core._multiarray_umath._load_from_filelike(
             data, dtype=np.dtype("U10"), filelike=True,
             quote='"', comment="#", skiplines=1)
         assert_array_equal(res[:, 0], ["1", f"2{newline}", "3", "4 "])
@@ -958,9 +983,11 @@ def test_parametric_unit_discovery(
 
     # file-obj path
     fd, fname = mkstemp()
+    os.close(fd)
     with open(fname, "w") as fh:
         fh.write("\n".join(data))
     a = np.loadtxt(fname, dtype=unitless_dtype)
+    os.remove(fname)
     assert a.dtype == expected.dtype
     assert_equal(a, expected)
 
@@ -980,9 +1007,11 @@ def test_str_dtype_unit_discovery_with_converter():
 
     # file-obj path
     fd, fname = mkstemp()
+    os.close(fd)
     with open(fname, "w") as fh:
         fh.write("\n".join(data))
     a = np.loadtxt(fname, dtype="U", converters=conv, encoding=None)
+    os.remove(fname)
     assert a.dtype == expected.dtype
     assert_equal(a, expected)
 
@@ -1004,3 +1033,15 @@ def test_control_characters_as_bytes():
     """Byte control characters (comments, delimiter) are supported."""
     a = np.loadtxt(StringIO("#header\n1,2,3"), comments=b"#", delimiter=b",")
     assert_equal(a, [1, 2, 3])
+
+
+@pytest.mark.filterwarnings('ignore::UserWarning')
+def test_field_growing_cases():
+    # Test empty field appending/growing (each field still takes 1 character)
+    # to see if the final field appending does not create issues.
+    res = np.loadtxt([""], delimiter=",", dtype=bytes)
+    assert len(res) == 0
+
+    for i in range(1, 1024):
+        res = np.loadtxt(["," * i], delimiter=",", dtype=bytes)
+        assert len(res) == i+1

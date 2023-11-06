@@ -1,18 +1,18 @@
-Using the Convenience Classes
+Using the convenience classes
 =============================
 
 The convenience classes provided by the polynomial package are:
 
-         ============    ================
-         Name            Provides
-         ============    ================
-         Polynomial      Power series
-         Chebyshev       Chebyshev series
-         Legendre        Legendre series
-         Laguerre        Laguerre series
-         Hermite         Hermite series
-         HermiteE        HermiteE series
-         ============    ================
+============    ================
+Name            Provides
+============    ================
+Polynomial      Power series
+Chebyshev       Chebyshev series
+Legendre        Legendre series
+Laguerre        Laguerre series
+Hermite         Hermite series
+HermiteE        HermiteE series
+============    ================
 
 The series in this context are finite sums of the corresponding polynomial
 basis functions multiplied by coefficients. For instance, a power series
@@ -69,7 +69,7 @@ Printing a polynomial yields the polynomial expression in a more familiar
 format::
 
    >>> print(p)
-   1.0 + 2.0·x¹ + 3.0·x²
+   1.0 + 2.0·x + 3.0·x²
 
 Note that the string representation of polynomials uses Unicode characters
 by default (except on Windows) to express powers and subscripts. An ASCII-based
@@ -79,12 +79,12 @@ format can be toggled at the package-level with the
 
    >>> np.polynomial.set_default_printstyle('ascii')
    >>> print(p)
-   1.0 + 2.0 x**1 + 3.0 x**2
+   1.0 + 2.0 x + 3.0 x**2
 
 or controlled for individual polynomial instances with string formatting::
 
    >>> print(f"{p:unicode}")
-   1.0 + 2.0·x¹ + 3.0·x²
+   1.0 + 2.0·x + 3.0·x²
 
 We will deal with the domain and window when we get to fitting, for the moment
 we ignore them and run through the basic algebraic and arithmetic operations.
@@ -240,7 +240,7 @@ number of times the polynomial is differentiated::
     Polynomial([6.], domain=[-1.,  1.], window=[-1.,  1.], symbol='x')
 
 
-Other Polynomial Constructors
+Other polynomial constructors
 -----------------------------
 
 Constructing polynomials by specifying coefficients is just one way of

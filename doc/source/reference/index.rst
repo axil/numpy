@@ -3,7 +3,7 @@
 .. _reference:
 
 ###############
-NumPy Reference
+NumPy reference
 ###############
 
 :Release: |version|
@@ -29,6 +29,7 @@ For learning how to use NumPy, see the :ref:`complete documentation <numpy_docs_
    distutils_status_migration
    c-api/index
    simd/index
+   security
    swig
 
 

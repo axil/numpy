@@ -1,9 +1,10 @@
-This file contains a walkthrough of branching NumPy 1.21.x on Linux.  The
+This guide contains a walkthrough of branching NumPy 1.21.x on Linux.  The
 commands can be copied into the command line, but be sure to replace 1.21 and
 1.22 by the correct versions. It is good practice to make ``.mailmap`` as
 current as possible before making the branch, that may take several weeks.
 
-This should be read together with the general directions in `releasing`.
+This should be read together with the
+:ref:`general release guide <prepare_release>`.
 
 Branching
 =========
@@ -64,8 +65,8 @@ Update ``cversions.txt`` to add current release. There should be no new hash
 to worry about at this early point, just add a comment following previous
 practice::
 
-    $ gvim numpy/core/code_generators/cversions.txt
-    $ git add numpy/core/code_generators/cversions.txt
+    $ gvim numpy/_core/code_generators/cversions.txt
+    $ git add numpy/_core/code_generators/cversions.txt
 
 Check your work, commit it, and push::
 

@@ -2,6 +2,22 @@ from .common import Benchmark
 
 import numpy as np
 
+try:
+    # SkipNotImplemented is available since 6.0
+    from asv_runner.benchmarks.mark import SkipNotImplemented
+except ImportError:
+    SkipNotImplemented = NotImplementedError
+
+
+class Linspace(Benchmark):
+    def setup(self):
+        self.d = np.array([1, 2, 3])
+
+    def time_linspace_scalar(self):
+        np.linspace(0, 10, 2)
+
+    def time_linspace_array(self):
+        np.linspace(self.d, 10, 10)
 
 class Histogram1D(Benchmark):
     def setup(self):
@@ -123,7 +139,7 @@ def memoize(f):
     def wrapped(*args):
         if args not in _memoized:
             _memoized[args] = f(*args)
-        
+
         return _memoized[args].copy()
 
     return f
@@ -145,7 +161,7 @@ class SortGenerator:
         arr = np.arange(size, dtype=dtype)
         np.random.shuffle(arr)
         return arr
-    
+
     @staticmethod
     @memoize
     def ordered(size, dtype):
@@ -160,6 +176,13 @@ class SortGenerator:
         """
         Returns an array that's in descending order.
         """
+        dtype = np.dtype(dtype)
+        try:
+            with np.errstate(over="raise"):
+                res = dtype.type(size-1)
+        except (OverflowError, FloatingPointError):
+            raise SkipNotImplemented("Cannot construct arange for this size.")
+
         return np.arange(size-1, -1, -1, dtype=dtype)
 
     @staticmethod
@@ -228,7 +251,6 @@ class SortGenerator:
 
         return cls.random_unsorted_area(size, dtype, frac, bubble_size)
 
-
 class Sort(Benchmark):
     """
     This benchmark tests sorting performance with several
@@ -239,7 +261,7 @@ class Sort(Benchmark):
         # In NumPy 1.17 and newer, 'merge' can be one of several
         # stable sorts, it isn't necessarily merge sort.
         ['quick', 'merge', 'heap'],
-        ['float64', 'int64', 'float32', 'uint32', 'int32', 'int16'],
+        ['float64', 'int64', 'float32', 'uint32', 'int32', 'int16', 'float16'],
         [
             ('random',),
             ('ordered',),
@@ -279,6 +301,37 @@ class Sort(Benchmark):
         np.argsort(self.arr, kind=kind)
 
 
+class Partition(Benchmark):
+    params = [
+        ['float64', 'int64', 'float32', 'int32', 'int16', 'float16'],
+        [
+            ('random',),
+            ('ordered',),
+            ('reversed',),
+            ('uniform',),
+            ('sorted_block', 10),
+            ('sorted_block', 100),
+            ('sorted_block', 1000),
+        ],
+        [10, 100, 1000],
+    ]
+    param_names = ['dtype', 'array_type', 'k']
+
+    # The size of the benchmarked arrays.
+    ARRAY_SIZE = 100000
+
+    def setup(self, dtype, array_type, k):
+        np.random.seed(1234)
+        array_class = array_type[0]
+        self.arr = getattr(SortGenerator, array_class)(self.ARRAY_SIZE,
+                dtype, *array_type[1:])
+
+    def time_partition(self, dtype, array_type, k):
+        temp = np.partition(self.arr, k)
+
+    def time_argpartition(self, dtype, array_type, k):
+        temp = np.argpartition(self.arr, k)
+
 class SortWorst(Benchmark):
     def setup(self):
         # quicksort median of 3 worst case
@@ -299,7 +352,9 @@ class SortWorst(Benchmark):
 class Where(Benchmark):
     def setup(self):
         self.d = np.arange(20000)
+        self.d_o = self.d.astype(object)
         self.e = self.d.copy()
+        self.e_o = self.d_o.copy()
         self.cond = (self.d > 5000)
         size = 1024 * 1024 // 8
         rnd_array = np.random.rand(size)
@@ -322,6 +377,11 @@ class Where(Benchmark):
 
     def time_2(self):
         np.where(self.cond, self.d, self.e)
+
+    def time_2_object(self):
+        # object and byteswapped arrays have a
+        # special slow path in the where internals
+        np.where(self.cond, self.d_o, self.e_o)
 
     def time_2_broadcast(self):
         np.where(self.cond, self.d, 0)

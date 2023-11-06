@@ -1,8 +1,10 @@
+:orphan:
+
 *************
 Miscellaneous
 *************
 
-IEEE 754 Floating Point Special Values
+IEEE 754 floating point special values
 --------------------------------------
 
 Special values defined in numpy: nan, inf,

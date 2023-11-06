@@ -1,7 +1,7 @@
 .. _array_api:
 
 ********************************
-Array API Standard Compatibility
+Array API standard compatibility
 ********************************
 
 .. note::
@@ -32,7 +32,7 @@ standard is implemented.
 
 .. _array_api-differences:
 
-Table of Differences between ``numpy.array_api`` and ``numpy``
+Table of differences between ``numpy.array_api`` and ``numpy``
 ==============================================================
 
 This table outlines the primary differences between ``numpy.array_api`` from
@@ -51,7 +51,7 @@ the main ``numpy`` namespace. There are three types of differences:
 3. **Breaking**. Things that would break backwards compatibility if
    implemented in the main ``numpy`` namespace.
 
-Name Differences
+Name differences
 ----------------
 
 Many functions have been renamed in the spec from NumPy. These are otherwise
@@ -152,8 +152,9 @@ Keyword Argument Renames
 
 The following functions have keyword arguments that have been renamed. The
 functionality of the keyword argument is identical unless otherwise stated.
-Each new keyword argument is not already present on the given function in
-``numpy``, so the changes are **compatible**.
+Renamed keyword arguments with the same semantic definition may be considered
+either **compatible** or **breaking**, depending on how the change is
+implemented.
 
 Note, this page does not list function keyword arguments that are in the main
 ``numpy`` namespace but not in the array API. Such keyword arguments are
@@ -189,11 +190,15 @@ functions to include additional keyword arguments from those required.
      - ``correction``
      - ``ddof``
      -
-
+   * - ``reshape``
+     - ``shape``
+     - ``newshape``
+     - The argument may be passed as a positional or keyword argument for both
+       NumPy and the array API.
 
 .. _array_api-type-promotion-differences:
 
-Type Promotion Differences
+Type promotion differences
 --------------------------
 
 Type promotion is the biggest area where NumPy deviates from the spec. The
@@ -228,6 +233,12 @@ independently of values or shapes.
        promoted.
      - **Breaking**
      - Example: ``a = np.array(1, dtype=np.int8); a += np.array(1, dtype=np.int16)``. The spec explicitly disallows this.
+   * - In-place operators are disallowed when the right-hand side operand
+       cannot broadcast to the shape of the left-hand side operand.
+     - **Strictness**
+     - This so-called "reverse broadcasting" should not be allowed. Example:
+       ``a = np.empty((2, 3, 4)); a += np.empty((3, 4))`` should error. See
+       https://github.com/numpy/numpy/issues/10404.
    * - ``int`` promotion for operators is only specified for integers within
        the bounds of the dtype.
      - **Strictness**
@@ -256,7 +267,7 @@ independently of values or shapes.
      - **Breaking**
      -
 
-Indexing Differences
+Indexing differences
 --------------------
 
 The spec requires only a subset of indexing, but all indexing rules in the
@@ -288,7 +299,7 @@ spec are compatible with NumPy's more broad indexing rules.
 
 .. _array_api-type-strictness:
 
-Type Strictness
+Type strictness
 ---------------
 
 Functions in ``numpy.array_api`` restrict their inputs to only those dtypes
@@ -508,7 +519,7 @@ Linear Algebra Functions
    * - ``vector_norm`` (*)
      - Floating-point
 
-(*) Thes functions are split from ``norm`` from the main ``numpy`` namespace.
+(*) These functions are split from ``norm`` from the main ``numpy`` namespace.
 See :ref:`array_api-name-changes`.
 
 (**) These functions are new in the array API and are not in the main
@@ -527,7 +538,7 @@ outlined in the spec
 (see :ref:`array_api-type-promotion-differences`).
 
 
-Array Object Differences
+Array object differences
 ------------------------
 
 .. list-table::
@@ -565,7 +576,7 @@ Array Object Differences
      - **Compatible**
      - The methods would effectively not do anything since NumPy is CPU only
 
-Creation Functions Differences
+Creation functions differences
 ------------------------------
 
 .. list-table::
@@ -584,7 +595,7 @@ Creation Functions Differences
      - **Compatible**
      - ``device`` would effectively do nothing, since NumPy is CPU only.
 
-Elementwise Functions Differences
+Elementwise functions differences
 ---------------------------------
 
 .. list-table::
@@ -612,7 +623,7 @@ Elementwise Functions Differences
 
 .. _array_api-linear-algebra-differences:
 
-Linear Algebra Differences
+Linear algebra differences
 --------------------------
 
 .. list-table::
@@ -688,7 +699,7 @@ Linear Algebra Differences
      - ``np.trace`` operates on the first two axes by default. Note that the
        array API ``trace`` does not allow specifying which axes to operate on.
 
-Manipulation Functions Differences
+Manipulation functions differences
 ----------------------------------
 
 .. list-table::
@@ -714,7 +725,7 @@ Manipulation Functions Differences
      - **Compatible**
      - See https://github.com/numpy/numpy/issues/9818.
 
-Set Functions Differences
+Set functions differences
 -------------------------
 
 .. list-table::
@@ -737,7 +748,7 @@ Set Functions Differences
 
 .. _array_api-set-functions-differences:
 
-Set Functions Differences
+Set functions differences
 -------------------------
 
 .. list-table::
@@ -759,7 +770,7 @@ Set Functions Differences
      - **Compatible**
      -
 
-Statistical Functions Differences
+Statistical functions differences
 ---------------------------------
 
 .. list-table::
@@ -777,7 +788,7 @@ Statistical Functions Differences
      - **Compatible**
      -
 
-Other Differences
+Other differences
 -----------------
 
 .. list-table::
@@ -801,3 +812,8 @@ Other Differences
      - **Strictness**
      - The spec allows duck typing, so ``finfo`` returning dtype
        scalars is considered type compatible with ``float``.
+   * - Positional arguments in every function are positional-only.
+     - **Breaking**
+     - See the spec for the exact signature of each function. Note that NumPy
+       ufuncs already use positional-only arguments, but non-ufuncs like
+       ``asarray`` generally do not.

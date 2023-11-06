@@ -1,6 +1,6 @@
 .. module:: numpy.testing
 
-Test Support (:mod:`numpy.testing`)
+Test support (:mod:`numpy.testing`)
 ===================================
 
 .. currentmodule:: numpy.testing
@@ -51,22 +51,15 @@ Decorators
 .. autosummary::
    :toctree: generated/
 
-   dec.deprecated
-   dec.knownfailureif
-   dec.setastest
-   dec.skipif
-   dec.slow
    decorate_methods
 
-Test Running
+Test running
 ------------
 .. autosummary::
    :toctree: generated/
 
-   Tester
    clear_and_catch_warnings
    measure
-   run_module_suite
    rundocs
    suppress_warnings
 

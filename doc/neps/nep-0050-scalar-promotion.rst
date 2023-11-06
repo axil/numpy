@@ -75,6 +75,34 @@ we expect that the behaviour in functions (promotion) will, in practice, be far
 more important than the casting change itself.
 
 
+.. note::
+
+    As of the NumPy 1.24.x series, NumPy has preliminary and limited support to
+    test this proposal.
+
+    It is further necessary to set the following environment variable::
+
+        export NPY_PROMOTION_STATE=weak
+
+    Valid values are ``weak``, ``weak_and_warn``, and ``legacy``.  Note that
+    ``weak_and_warn`` implements the optional warnings proposed in this NEP
+    and is expected to be *very* noisy.
+    We recommend starting using the ``weak`` option and use ``weak_and_warn``
+    mainly to understand a specific observed change in behaviour.
+
+    The following additional API exists:
+
+    * ``np._set_promotion_state()`` and ``np._get_promotion_state()`` which is
+      equivalent to the environment variable.  (Not thread/context safe.)
+    * ``with np._no_nep50_warning():`` allows to suppress warnings when
+      ``weak_and_warn`` promotion is used.  (Thread and context safe.)
+
+    At this time overflow warnings on integer power are missing.
+    Further, ``np.can_cast`` fails to give warnings in the
+    ``weak_and_warn`` mode.  Its behavior with respect to Python scalar input
+    may still be in flux (this should affect very few users).
+
+
 Schema of the new proposed promotion rules
 ------------------------------------------
 
@@ -183,21 +211,33 @@ arrays that are not 0-D, such as ``array([2])``.
    * - ``uint8(1) + 300``
      - ``int64(301)``
      - *Exception* [T5]_
+   * - ``uint8(100) + 200``
+     - ``int64(301)``
+     - ``uint8(44)`` *and* ``RuntimeWarning``  [T6]_
    * - ``float32(1) + 3e100``
      - ``float64(3e100)``
-     - ``float32(Inf)`` *and* ``OverflowWarning`` [T6]_
-   * - ``array([0.1], float32) == 0.1``
-     - ``array([False])``
+     - ``float32(Inf)`` *and* ``RuntimeWarning`` [T7]_
+   * - ``array([1.0], float32) + 1e-14 == 1.0``  [T8]_
+     - ``array([True])``
      - *unchanged*
-   * - ``array([0.1], float32) == float64(0.1)``
-     - ``array([ True])``
-     - ``array([False])``  [T7]_
+   * - ``array(1.0, float32) + 1e-14 == 1.0``  [T8]_
+     - ``False``
+     - ``True``
    * - ``array([1.], float32) + 3``
      - ``array([4.], float32)``
      - *unchanged*
    * - ``array([1.], float32) + int64(3)``
      - ``array([4.], float32)``
-     - ``array([4.], float64)``  [T8]_
+     - ``array([4.], float64)``  [T9]_
+   * - ``(3j + array(3, complex64)).dtype``
+     - ``complex128``
+     - ``complex64`` [T10]_
+   * - ``(float32(1) + 1j)).dtype``
+     - ``complex128``
+     - ``complex64`` [T11]_
+   * - ``(int32(1) + 5j).dtype``
+     - ``complex128``
+     - *unchanged* [T12]_
 
 .. [T1] New behaviour honours the dtype of the ``uint8`` scalar.
 .. [T2] Current NumPy ignores the precision of 0-D arrays or NumPy scalars
@@ -207,11 +247,24 @@ arrays that are not 0-D, such as ``array([2])``.
 .. [T4] Old behaviour uses ``uint16`` because ``300`` does not fit ``uint8``,
         new behaviour raises an error for the same reason.
 .. [T5] ``300`` cannot be converted to ``uint8``.
-.. [T6] ``np.float32(3e100)`` overflows to infinity.
-.. [T7] ``0.1`` loses precision when cast to ``float32``, but old behaviour
-        casts the ``float64(0.1)`` and then matches.
-.. [T8] NumPy promotes ``float32`` and ``int64`` to ``float64``.  The old
+.. [T6] One of the most dangerous changes maybe.  Retaining the type leads to
+        overflow.  A ``RuntimeWarning`` indicating overflow is given for the
+        NumPy scalars.
+.. [T7] ``np.float32(3e100)`` overflows to infinity with a warning.
+.. [T8] ``1 + 1e-14`` loses precision when done in float32 but not in float64.
+        The old behavior was casting the scalar argument to float32 or float64
+        differently depending on the dimensionality of the array; with the new
+        behavior the computation is always done in the array
+        precision (float32 in this case).
+.. [T9] NumPy promotes ``float32`` and ``int64`` to ``float64``.  The old
         behaviour ignored the ``int64`` here.
+.. [T10] The new behavior is consistent between ``array(3, complex64)`` and
+         ``array([3], complex64)``: the dtype of the result is that of the
+         array argument.
+.. [T11] The new behavior uses the complex dtype of the precision compatible
+         with the array argument, ``float32``.
+.. [T12] Since the array kind is integer, the result uses the default complex
+         precision, which is ``complex128``.
 
 
 Motivation and Scope
@@ -512,7 +565,7 @@ retaining the previous datatype is intuitive.
 Replacing this example with ``np.float32`` is maybe even more clear,
 as float will rarely have overflows.
 Without this behaviour, the above example would require writing ``np.uint8(4)``
-and lack of the behaviour would make the following suprising::
+and lack of the behaviour would make the following surprising::
 
     result = np.array([1, 2, 3], dtype=np.float32) * 2.
     result.dtype == np.float32
@@ -575,7 +628,7 @@ or be unspecified though:
 Implementation
 ==============
 
-Implemeting this NEP requires some additional machinery to be added to all
+Implementing this NEP requires some additional machinery to be added to all
 binary operators (or ufuncs), so that they attempt to use the "weak" logic
 if possible.
 There are two possible approaches to this:
@@ -642,7 +695,7 @@ This has advantages and disadvantages:
 
 * The main advantage is that limiting it to Python operators means that these
   "weak" types/dtypes are clearly ephemeral to short Python statements.
-* A disadvantage is that ``np.multiply`` and ``*`` are less interchangable.
+* A disadvantage is that ``np.multiply`` and ``*`` are less interchangeable.
 * Using "weak" promotion only for operators means that libraries do not have
   to worry about whether they want to "remember" that an input was a Python
   scalar initially.  On the other hand, it would add a the need for slightly
@@ -669,7 +722,7 @@ are "stronger" than Python scalars, but NumPy scalars are not).
 Such a distinction is very much possible, however, at this time NumPy will
 often (and silently) convert 0-D arrays to scalars.
 It may thus make sense, to only consider this alternative if we also
-change this silent conversion (sometimes refered to as "decay") behaviour.
+change this silent conversion (sometimes referred to as "decay") behaviour.
 
 
 Handling conversion of scalars when unsafe
